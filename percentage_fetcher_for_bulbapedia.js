@@ -22,16 +22,13 @@
   var game_locations_table = game_locations.parentNode.nextSibling.nextSibling
   game_locations_table.style.borderWidth = "10px"
   game_locations_table.classList.add(locations_table_class)
-  console.log(game_locations_table)
   var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
   var generation_table_index = 0
-  console.log(generation_tables)
   generation_tables.forEach((generation_table) => {
     var this_generation_table_class = "generation_table_31Lhg_" + generation_table_index
     generation_table.classList.add(this_generation_table_class)
 
     var generation_name = document.querySelector(`.${this_generation_table_class}>tbody>tr>th>*`).innerText
-    console.log(generation_name)
 
     var inner_generation_table_class = "inner_generation_table_W6Wd8_" + generation_table_index
     var inner_generation_table = document.querySelector(`.${this_generation_table_class}>tbody>tr>td>table`)
@@ -43,12 +40,48 @@
     var route_set_index = 0
     route_sets.forEach((route_set) => {
       var game_names = Array.from(route_set_names[route_set_index].querySelectorAll("th>a>span")).map((el) => el.innerText)
-      var routes = Array.from(route_set.querySelectorAll("a")).map((el) => el.innerText)
+      var routes = route_set.querySelectorAll("a")
 
-      console.log(game_names.join(",") + ": " + routes.join(","))
+      console.log(game_names.join(",") + ": ")
+
+      routes.forEach((route) => {
+        var should_skip = matchOneOfTheFollowing(route.href, [
+          /\/Time$/,
+          /\/Evolution$/,
+          /\/Route$/,
+          /\/.*?_\(Pok\%C3\%A9mon\)$/,
+          /\/Pok\%C3\%A9mon_Bank$/,
+          /\/Trade$/,
+          /\/Days_of_the_week#.*?$/,
+        ])
+        if (!should_skip) {
+          var routehref = route.href
+          var hasHeading = routehref.includes('#')
+          if (!hasHeading) {
+            route.href = `${routehref}#${generation_name.replace(" ", "_")}`
+          }
+
+          // console.log(`${route.innerText}:`)
+          // console.log(route.href)
+        }
+      })
       route_set_index++
     })
     //https://bulbapedia.bulbagarden.net/wiki/Sinnoh_Route_205#Generation_IV
     generation_table_index++
   })
 })();
+
+function matchOneOfTheFollowing(str, possibleMatch) {
+  var returnValue = false
+  possibleMatch.forEach((m) => {
+    if (str.match(m)) {
+      returnValue = true
+      return;
+    }
+  })
+
+  return returnValue
+}
+
+
