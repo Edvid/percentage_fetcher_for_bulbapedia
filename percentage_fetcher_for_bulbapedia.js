@@ -19,7 +19,7 @@
   body.style.background = "cyan"
 
   var game_locations = document.querySelector("#Game_locations")
-  var game_locations_table = game_locations.parentNode.nextSibling.nextSibling
+  var game_locations_table = game_locations.parentNode.nextElementSibling
   game_locations_table.style.borderWidth = "10px"
   game_locations_table.classList.add(locations_table_class)
   var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
@@ -61,7 +61,6 @@
             route.setAttribute("href",`${routehref}#${generation_name_underscored}`)
           }
           if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
-            console.log(linked_page)
             var linked_page_content = await fetch(
               `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
             ).then((res) => {
@@ -80,16 +79,36 @@
               let traverse = section_header
               const tries = 20
               for (let i = 0; i < tries; i++) {
-                if (traverse.nodeName !== "#text") {
-                  if (traverse.nodeName === section_header.nodeName && traverse !== section_header) break;
+                if (traverse === null) break;
+                if (traverse.nodeName === section_header.nodeName && traverse !== section_header) break;
 
-                  if (traverse.nodeName.toLowerCase() === "table") {
-                    tables_in_section.push(traverse)
-                  }
+                if (traverse.nodeName.toLowerCase() === "table") {
+                  tables_in_section.push(traverse)
                 }
-                traverse = traverse.nextSibling
+                traverse = traverse.nextElementSibling
               }
               return tables_in_section
+            }).then((res) => {
+              const pokemon_name = document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
+
+              var rows_with_pokemon_in_question = []
+              res.forEach((t) => {
+                var traverse = t.querySelector("tbody>tr")
+                const tries = 200
+                for (let i = 0; i < tries; i++) {
+                  if (traverse === null) break;
+                  var is_non_header_row = traverse.firstElementChild.nodeName.toLowerCase() === "td"
+                  if (is_non_header_row) {
+                    const pokemon_span = traverse.firstElementChild.querySelector("table>tbody>tr>*>a>span")
+                    if (pokemon_span === null) continue;
+                    const pokemon_in_this_row = pokemon_span.innerText
+                    const has_pokemon_in_question = pokemon_in_this_row === pokemon_name
+                    if (has_pokemon_in_question) rows_with_pokemon_in_question.push(traverse)
+                  }
+                  traverse = traverse.nextElementSibling
+                }
+              })
+              return rows_with_pokemon_in_question
             })
             console.log(linked_page_content)
           }
