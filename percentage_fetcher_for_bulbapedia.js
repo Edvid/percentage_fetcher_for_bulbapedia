@@ -72,7 +72,7 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
   const generation_name_underscored = generation_name.replace(" ", "_")
 
   if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
-    var linked_page_content = await fetch(
+    var percentage_winner = await fetch(
       `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
     ).then((res) => {
         if (res.status !== 200) {
@@ -82,21 +82,42 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
       }).then(
         (res) => res.parse.text["*"]
       ).then((res) => HTMLStringToDocument(res)
-      ).then((res) => {
+      ).then((doc) => {
         return {
-          document: res,
-          relavant_section: res.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
+          document: doc,
+          relavant_section: doc.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
         }
       }).then((res) => {
         modifyHref(route, res.relavant_section)
         return TableElementListInSection(res.document, res.relavant_section)
-      }).then((res) => ExtractRelevantRowsFromTables(
-        res,
+      }).then((tablesInSection) => ExtractRelevantRowsFromTables(
+        tablesInSection,
         document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon,
         game_names
-      ))
-    console.log({page: linked_page, rows: linked_page_content })
+      )).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row)
+      )).then((percentages) => percentages.sort().reverse()[0])
+    console.log({page: linked_page, percentages: percentage_winner })
   }
+}
+
+function getHighestProcentageFromTableRow(tableRow) {
+  const numCaptureRegex = /(?<num>\d+)%\n?/
+  const isDataRowWithPercentage = (el) => {
+    var is_non_header_row = el.nodeName.toLowerCase() === "td"
+    if (is_non_header_row) {
+      var is_percentage_container = el.innerText.match(numCaptureRegex)
+      if (is_percentage_container) {
+        return true
+      }
+    }
+    return false
+  }
+  return BuildArrayWithTraversal(
+    tableRow.firstElementChild,
+    isDataRowWithPercentage
+  ).map(
+      (td) => td.innerText.match(numCaptureRegex).groups.num
+  ).sort().reverse()[0]
 }
 
 function modifyHref(anchor, UrlFragmentToAppend) {
