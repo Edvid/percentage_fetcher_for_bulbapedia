@@ -22,8 +22,12 @@
   game_locations_table.style.borderWidth = "10px"
   game_locations_table.classList.add(locations_table_class)
   var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
+  modify_generation_tables(generation_tables)
+})();
+
+function modify_generation_tables(generation_tables) {
   var generation_table_index = 0
-  generation_tables.forEach(async (generation_table) => {
+  generation_tables.forEach((generation_table) => {
     var this_generation_table_class = "generation_table_31Lhg_" + generation_table_index
     generation_table.classList.add(this_generation_table_class)
 
@@ -42,52 +46,55 @@
       var routes = route_set.querySelectorAll("a")
 
       routes.forEach(async (route) => {
-        var should_skip = matchOneOfTheFollowing(route.href, [
-          /\/Time$/,
-          /\/Evolution$/,
-          /\/Route$/,
-          /\/.*?_\(Pok\%C3\%A9mon\)$/,
-          /\/Pok\%C3\%A9mon_Bank$/,
-          /\/Trade$/,
-          /\/Days_of_the_week#.*?$/,
-        ])
-        if (!should_skip) {
-          var routehref = route.getAttribute("href")
-          const linked_page = routehref.replace(/^\/wiki\//, "")
-          const generation_name_underscored = generation_name.replace(" ", "_")
-
-          if (generation_name === "Generation IV" || game_names.includes("Platinum")) {
-            var linked_page_content = await fetch(
-              `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
-            ).then((res) => {
-              if (res.status !== 200) {
-                throw new Error(`There was an error with status code ${res.status}`)
-              }
-              return res.json()
-            }).then(
-              (res) => res.parse.text["*"]
-            ).then((res) => HTMLStringToDocument(res)
-            ).then((res) => {
-              return {
-                document: res,
-                relavant_section: res.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
-              }
-            }).then((res) => {
-              modifyHref(route, res.relavant_section)
-              return TableElementListInSection(res.document, res.relavant_section)
-            }).then((res) => ExtractRelevantRowsFromTables(
-              res,
-              document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
-            ))
-            console.log({page: linked_page, rows: linked_page_content })
-          }
-        }
+        makeRouteLinkBetter(route, generation_name, game_names)
       })
       route_set_index++
     })
     generation_table_index++
   })
-})();
+}
+
+async function makeRouteLinkBetter(route, generation_name, game_names) {
+  var should_skip = matchOneOfTheFollowing(route.href, [
+    /\/Time$/,
+    /\/Evolution$/,
+    /\/Route$/,
+    /\/.*?_\(Pok\%C3\%A9mon\)$/,
+    /\/Pok\%C3\%A9mon_Bank$/,
+    /\/Trade$/,
+    /\/Days_of_the_week#.*?$/,
+  ])
+  if (should_skip) return
+  var routehref = route.getAttribute("href")
+  const linked_page = routehref.replace(/^\/wiki\//, "")
+  const generation_name_underscored = generation_name.replace(" ", "_")
+
+  if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
+    var linked_page_content = await fetch(
+      `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
+    ).then((res) => {
+        if (res.status !== 200) {
+          throw new Error(`There was an error with status code ${res.status}`)
+        }
+        return res.json()
+      }).then(
+        (res) => res.parse.text["*"]
+      ).then((res) => HTMLStringToDocument(res)
+      ).then((res) => {
+        return {
+          document: res,
+          relavant_section: res.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
+        }
+      }).then((res) => {
+        modifyHref(route, res.relavant_section)
+        return TableElementListInSection(res.document, res.relavant_section)
+      }).then((res) => ExtractRelevantRowsFromTables(
+        res,
+        document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
+      ))
+    console.log({page: linked_page, rows: linked_page_content })
+  }
+}
 
 function modifyHref(anchor, UrlFragmentToAppend) {
   const routehref = anchor.getAttribute("href")
@@ -170,3 +177,4 @@ function matchOneOfTheFollowing(str, possibleMatch) {
 
   return returnValue
 }
+
