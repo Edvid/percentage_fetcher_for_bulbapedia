@@ -11,7 +11,7 @@
 
 
 
-(function() {
+(async function() {
   'use strict';
   var locations_table_class = "location_table_Obs7o"
 
@@ -24,7 +24,7 @@
   game_locations_table.classList.add(locations_table_class)
   var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
   var generation_table_index = 0
-  generation_tables.forEach((generation_table) => {
+  generation_tables.forEach(async (generation_table) => {
     var this_generation_table_class = "generation_table_31Lhg_" + generation_table_index
     generation_table.classList.add(this_generation_table_class)
 
@@ -42,9 +42,7 @@
       var game_names = Array.from(route_set_names[route_set_index].querySelectorAll("th>a>span")).map((el) => el.innerText)
       var routes = route_set.querySelectorAll("a")
 
-      console.log(game_names.join(",") + ": ")
-
-      routes.forEach((route) => {
+      routes.forEach(async (route) => {
         var should_skip = matchOneOfTheFollowing(route.href, [
           /\/Time$/,
           /\/Evolution$/,
@@ -55,10 +53,45 @@
           /\/Days_of_the_week#.*?$/,
         ])
         if (!should_skip) {
-          var routehref = route.href
+          var routehref = route.getAttribute("href")
+          const linked_page = routehref.replace(/^\/wiki\//, "")
+          const generation_name_underscored = generation_name.replace(" ", "_")
           var hasHeading = routehref.includes('#')
           if (!hasHeading) {
-            route.href = `${routehref}#${generation_name.replace(" ", "_")}`
+            route.setAttribute("href",`${routehref}#${generation_name_underscored}`)
+          }
+          if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
+            console.log(linked_page)
+            var linked_page_content = await fetch(
+              `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
+            ).then((res) => {
+              if (res.status !== 200) {
+                throw new Error(`There was an error with status code ${res.status}`)
+              }
+              return res.json()
+            }).then(
+              (res) => res.parse.text["*"]
+            ).then((res) => {
+              const parser = new DOMParser();
+              return parser.parseFromString(res, "text/html");
+            }).then((res) => {
+              const section_header = res.querySelector(`#${generation_name_underscored}`).parentNode
+              let tables_in_section = []
+              let traverse = section_header
+              const tries = 20
+              for (let i = 0; i < tries; i++) {
+                if (traverse.nodeName !== "#text") {
+                  if (traverse.nodeName === section_header.nodeName && traverse !== section_header) break;
+
+                  if (traverse.nodeName.toLowerCase() === "table") {
+                    tables_in_section.push(traverse)
+                  }
+                }
+                traverse = traverse.nextSibling
+              }
+              return tables_in_section
+            })
+            console.log(linked_page_content)
           }
 
           // console.log(`${route.innerText}:`)
