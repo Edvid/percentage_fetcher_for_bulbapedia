@@ -110,7 +110,7 @@
               })
               return rows_with_pokemon_in_question
             })
-            console.log(linked_page_content)
+            console.log({page: linked_page, rows: linked_page_content })
           }
 
           // console.log(`${route.innerText}:`)
