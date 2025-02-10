@@ -62,7 +62,9 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
     /\/.*?_\(Pok\%C3\%A9mon\)$/,
     /\/Pok\%C3\%A9mon_Bank$/,
     /\/Trade$/,
-    /\/Days_of_the_week#.*?$/,
+    /\/Dual-slot_mode(#.*?)?$/,
+    /\/Days_of_the_week(#.*?)?$/,
+    /\/Headbutt_tree$/
   ])
   if (should_skip) return
   var routehref = route.getAttribute("href")
@@ -90,7 +92,8 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
         return TableElementListInSection(res.document, res.relavant_section)
       }).then((res) => ExtractRelevantRowsFromTables(
         res,
-        document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
+        document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon,
+        game_names
       ))
     console.log({page: linked_page, rows: linked_page_content })
   }
@@ -124,8 +127,8 @@ function TableElementListInSection(parsedDoc, sectionId) {
   )
 }
 
-function ExtractRelevantRowsFromTables(tableElementList, target_pokemon) {
-  const rowWithGivenPokemon = (element) => {
+function ExtractRelevantRowsFromTables(tableElementList, target_pokemon, target_games) {
+  const isRowWithGivenPokemon = (element) => {
     var is_non_header_row = element.firstElementChild.nodeName.toLowerCase() === "td"
     if (is_non_header_row) {
       const pokemon_span = element.firstElementChild.querySelector("table>tbody>tr>*>a>span")
@@ -137,12 +140,52 @@ function ExtractRelevantRowsFromTables(tableElementList, target_pokemon) {
     }
   }
 
+  const isRowWithAtLeastOneOfGivenGames = (element) => {
+    const captureTh = (el) => el.nodeName.toLowerCase() === "th"
+
+    const colorIsBlank = (el) => {
+      const { r, g, b } = el.style.background.match(/rgb\( ?(?<r>.*?), ?(?<g>.*?), ?(?<b>.*?) ?\)/).groups
+      if (
+        r === "0" &&
+        g === "0" &&
+        b === "0"
+      ) return true
+      if (
+        r === "255" &&
+        g === "255" &&
+        b === "255"
+      ) return true
+      return false
+    }
+
+    const matchStrWithAnyInArr = (str, arr) => {
+      return arr.filter((el) => el === str).length > 0
+    }
+
+    var thElements = BuildArrayWithTraversal(
+      element.firstElementChild,
+      captureTh,
+      (_iterated_element) => false
+    )
+    const target_games_abbr = target_games.map((game_name) => findAbbreviation(game_name))
+    const isHighlightingAtLeastOneOfGameNames = () => {
+      return thElements.filter((th) => {
+        if (colorIsBlank(th)) return false
+        if (matchStrWithAnyInArr(th.firstElementChild.innerText, target_games_abbr)) return true
+        return false
+      }).length > 0
+    }
+    return isHighlightingAtLeastOneOfGameNames()
+  }
+
+  const isRelevantGamesRow = (el) => isRowWithGivenPokemon(el) && isRowWithAtLeastOneOfGivenGames(el)
+
   var rows_with_pokemon_in_question = []
   tableElementList.forEach((table) => {
     var rows_from_this_table = BuildArrayWithTraversal(
       table.querySelector("tbody>tr"),
-      rowWithGivenPokemon,
-      (iterated_element) => false,
+      isRelevantGamesRow,
+      (_iterated_element) => false,
       200
     )
     rows_with_pokemon_in_question = rows_with_pokemon_in_question.concat(rows_from_this_table)
@@ -176,5 +219,14 @@ function matchOneOfTheFollowing(str, possibleMatch) {
   })
 
   return returnValue
+}
+
+function findAbbreviation(str) {
+  switch (str) {
+    case "Platinum":
+      return "Pt"
+    default:
+      return str.replace(/[a-z ]/g, "")
+  }
 }
 
