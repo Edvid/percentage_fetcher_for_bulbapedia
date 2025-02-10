@@ -55,11 +55,8 @@
           var routehref = route.getAttribute("href")
           const linked_page = routehref.replace(/^\/wiki\//, "")
           const generation_name_underscored = generation_name.replace(" ", "_")
-          var hasHeading = routehref.includes('#')
-          if (!hasHeading) {
-            route.setAttribute("href",`${routehref}#${generation_name_underscored}`)
-          }
-          if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
+
+          if (generation_name === "Generation IV" || game_names.includes("Platinum")) {
             var linked_page_content = await fetch(
               `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
             ).then((res) => {
@@ -70,8 +67,15 @@
             }).then(
               (res) => res.parse.text["*"]
             ).then((res) => HTMLStringToDocument(res)
-            ).then((res) => TableElementListInSection(res, generation_name_underscored)
-            ).then((res) => ExtractRelevantRowsFromTables(
+            ).then((res) => {
+              return {
+                document: res,
+                relavant_section: res.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
+              }
+            }).then((res) => {
+              modifyHref(route, res.relavant_section)
+              return TableElementListInSection(res.document, res.relavant_section)
+            }).then((res) => ExtractRelevantRowsFromTables(
               res,
               document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
             ))
@@ -84,6 +88,14 @@
     generation_table_index++
   })
 })();
+
+function modifyHref(anchor, UrlFragmentToAppend) {
+  const routehref = anchor.getAttribute("href")
+  const hasHeading = routehref.includes('#')
+  if (!hasHeading) {
+    anchor.setAttribute("href",`${routehref}#${UrlFragmentToAppend}`)
+  }
+}
 
 function HTMLStringToDocument(htmlStr) {
   const parser = new DOMParser();
