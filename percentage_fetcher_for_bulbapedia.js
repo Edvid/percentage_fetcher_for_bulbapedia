@@ -10,7 +10,6 @@
 // ==/UserScript==
 
 
-
 (async function() {
   'use strict';
   var locations_table_class = "location_table_Obs7o"
@@ -70,59 +69,83 @@
               return res.json()
             }).then(
               (res) => res.parse.text["*"]
-            ).then((res) => {
-              const parser = new DOMParser();
-              return parser.parseFromString(res, "text/html");
-            }).then((res) => {
-              const section_header = res.querySelector(`#${generation_name_underscored}`).parentNode
-              let tables_in_section = []
-              let traverse = section_header
-              const tries = 20
-              for (let i = 0; i < tries; i++) {
-                if (traverse === null) break;
-                if (traverse.nodeName === section_header.nodeName && traverse !== section_header) break;
-
-                if (traverse.nodeName.toLowerCase() === "table") {
-                  tables_in_section.push(traverse)
-                }
-                traverse = traverse.nextElementSibling
-              }
-              return tables_in_section
-            }).then((res) => {
-              const pokemon_name = document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
-
-              var rows_with_pokemon_in_question = []
-              res.forEach((t) => {
-                var traverse = t.querySelector("tbody>tr")
-                const tries = 200
-                for (let i = 0; i < tries; i++) {
-                  if (traverse === null) break;
-                  var is_non_header_row = traverse.firstElementChild.nodeName.toLowerCase() === "td"
-                  if (is_non_header_row) {
-                    const pokemon_span = traverse.firstElementChild.querySelector("table>tbody>tr>*>a>span")
-                    if (pokemon_span === null) continue;
-                    const pokemon_in_this_row = pokemon_span.innerText
-                    const has_pokemon_in_question = pokemon_in_this_row === pokemon_name
-                    if (has_pokemon_in_question) rows_with_pokemon_in_question.push(traverse)
-                  }
-                  traverse = traverse.nextElementSibling
-                }
-              })
-              return rows_with_pokemon_in_question
-            })
+            ).then((res) => HTMLStringToDocument(res)
+            ).then((res) => TableElementListInSection(res, generation_name_underscored)
+            ).then((res) => ExtractRelevantRowsFromTables(
+              res,
+              document.URL.match(/^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/).groups.pokemon
+            ))
             console.log({page: linked_page, rows: linked_page_content })
           }
-
-          // console.log(`${route.innerText}:`)
-          // console.log(route.href)
         }
       })
       route_set_index++
     })
-    //https://bulbapedia.bulbagarden.net/wiki/Sinnoh_Route_205#Generation_IV
     generation_table_index++
   })
 })();
+
+function HTMLStringToDocument(htmlStr) {
+  const parser = new DOMParser();
+  return parser.parseFromString(htmlStr, "text/html");
+}
+
+function TableElementListInSection(parsedDoc, sectionId) {
+  const section_header = parsedDoc.querySelector(`#${sectionId}`).parentNode
+  const captureAnyTable = (element) => {
+    return element.nodeName.toLowerCase() === "table"
+  }
+  const untilFindingAnotherHeaderOfSameTypeAsSectionHeader = (element) => {
+    return element.nodeName === section_header.nodeName && element !== section_header
+  }
+  return BuildArrayWithTraversal(
+    section_header,
+    captureAnyTable,
+    untilFindingAnotherHeaderOfSameTypeAsSectionHeader
+  )
+}
+
+function ExtractRelevantRowsFromTables(tableElementList, target_pokemon) {
+  const rowWithGivenPokemon = (element) => {
+    var is_non_header_row = element.firstElementChild.nodeName.toLowerCase() === "td"
+    if (is_non_header_row) {
+      const pokemon_span = element.firstElementChild.querySelector("table>tbody>tr>*>a>span")
+      if (pokemon_span !== null) {
+        const pokemon_in_this_row = pokemon_span.innerText
+        const has_pokemon_in_question = pokemon_in_this_row === target_pokemon
+        return has_pokemon_in_question
+      }
+    }
+  }
+
+  var rows_with_pokemon_in_question = []
+  tableElementList.forEach((table) => {
+    var rows_from_this_table = BuildArrayWithTraversal(
+      table.querySelector("tbody>tr"),
+      rowWithGivenPokemon,
+      (iterated_element) => false,
+      200
+    )
+    rows_with_pokemon_in_question = rows_with_pokemon_in_question.concat(rows_from_this_table)
+  })
+  return rows_with_pokemon_in_question
+}
+
+function BuildArrayWithTraversal(startElement, captureFunc, untilFunc = (it_el) => false, tries = 20) {
+  var buildArray = []
+  var traverse = startElement
+  for (let i = 0; i < tries; i++) {
+    if (traverse === null) break;
+    if (untilFunc(traverse)) break;
+
+    if (captureFunc(traverse)) {
+      buildArray.push(traverse)
+    }
+
+    traverse = traverse.nextElementSibling
+  }
+  return buildArray
+}
 
 function matchOneOfTheFollowing(str, possibleMatch) {
   var returnValue = false
@@ -135,5 +158,3 @@ function matchOneOfTheFollowing(str, possibleMatch) {
 
   return returnValue
 }
-
-
