@@ -10,16 +10,15 @@
 // ==/UserScript==
 
 
+
 (async function() {
   'use strict';
-  var locations_table_class = "location_table_Obs7o"
+  const locations_table_class = "location_table_Obs7o"
 
   var body = document.querySelector("body")
-  body.style.background = "cyan"
 
   var game_locations = document.querySelector("#Game_locations")
   var game_locations_table = game_locations.parentNode.nextElementSibling
-  game_locations_table.style.borderWidth = "10px"
   game_locations_table.classList.add(locations_table_class)
   var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
   modify_generation_tables(generation_tables)
@@ -71,7 +70,7 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
   const linked_page = routehref.replace(/^\/wiki\//, "")
   const generation_name_underscored = generation_name.replace(" ", "_")
 
-  if (generation_name === "Generation IV" && game_names.includes("Platinum")) {
+  if (generation_name === "Generation IV" && (game_names.includes("HeartGold") || game_names.includes("SoulSilver") || game_names.includes("Platinum"))) {
     var percentage_winner = await fetch(
       `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
     ).then((res) => {
@@ -97,11 +96,29 @@ async function makeRouteLinkBetter(route, generation_name, game_names) {
       )).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row)
       )).then((percentages) => percentages.sort().reverse()[0])
     console.log({page: linked_page, percentages: percentage_winner })
+    appendNumToLink(route, percentage_winner)
   }
 }
 
+function appendNumToLink(anchor, num) {
+  // "rgb(225, 140, 0)"
+  const percentage_display_color = "rgb(128, 35, 160)"
+  var sup = document.createElement("sup")
+  var span = document.createElement("span")
+  span.innerText = num + "%"
+  span.style.fontWeight = "Bold"
+  span.style.fontSize = "10px"
+  span.style.color = "rgb(255, 255, 255)"
+  span.style.background = percentage_display_color
+  span.style.marginLeft = "3px"
+  span.style.padding = "1px 2px 1px 2px"
+  span.style.borderRadius = "2px"
+  sup.appendChild(span)
+  anchor.after(sup)
+}
+
 function getHighestProcentageFromTableRow(tableRow) {
-  const numCaptureRegex = /(?<num>\d+)%\n?/
+  const numCaptureRegex = /(?<num>(?:\d|\.)+)%\n?/
   const isDataRowWithPercentage = (el) => {
     var is_non_header_row = el.nodeName.toLowerCase() === "td"
     if (is_non_header_row) {
