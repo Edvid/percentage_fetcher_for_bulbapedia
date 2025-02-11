@@ -24,48 +24,48 @@
   const NO_HREF_IN_ANCHOR = "A link to a route didn't contain a url to link to. Report a bug if you see this."
   const NO_TEXT_FOUND_IN_TABLE_CELL_DESPITE_CAPTURING_ONLY_TEXT_TABLE_CELL = "Text was not found in a given Table Cell Element (td/th) despite this code only running on Table Cells captured that had text in them. This error should never happen. Report a bug if you see this."
   const GIVEN_SECTION_NOT_FOUND = "Failed to find the correct section to scan tables from. Report a bug if you see this."
-  var is_pokemon_page = document.URL.match(pokemon_regex)
+  const is_pokemon_page = document.URL.match(pokemon_regex)
   if (is_pokemon_page === null) {
     return
   }
-  var game_locations = document.querySelector("#Game_locations")
+  const game_locations = document.querySelector("#Game_locations")
   if (!game_locations) {
     console.error(NO_GAME_LOCATION_TEXT)
     return
   }
-  var game_locations_table = game_locations.parentElement!.nextElementSibling!
+  const game_locations_table = game_locations.parentElement!.nextElementSibling!
   game_locations_table.classList.add(locations_table_class)
-  var generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
+  const generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`)
   modify_generation_tables(generation_tables)
 
   function modify_generation_tables(generation_tables: NodeListOf<Element>) {
-    var generation_table_index = 0
+    let generation_table_index = 0
     generation_tables.forEach((generation_table) => {
-      var this_generation_table_class = "generation_table_31Lhg_" + generation_table_index
+      const this_generation_table_class = "generation_table_31Lhg_" + generation_table_index
       generation_table.classList.add(this_generation_table_class)
 
-      var generation_name_element = document.querySelector(`.${this_generation_table_class}>tbody>tr>th>*`)
+      const generation_name_element = document.querySelector(`.${this_generation_table_class}>tbody>tr>th>*`)
       if (!generation_name_element) {
         console.error(NO_GENERATION_NAME_TEXT)
         return
       }
-      var generation_name = generation_name_element.textContent
+      const generation_name = generation_name_element.textContent
 
-      var inner_generation_table_class = "inner_generation_table_W6Wd8_" + generation_table_index
-      var inner_generation_table = document.querySelector(`.${this_generation_table_class}>tbody>tr>td>table`)
+      const inner_generation_table_class = "inner_generation_table_W6Wd8_" + generation_table_index
+      const inner_generation_table = document.querySelector(`.${this_generation_table_class}>tbody>tr>td>table`)
       if (!inner_generation_table) {
         console.error(NO_INNER_GENERATION_TABLE_TEXT)
         return
       }
       inner_generation_table.classList.add(inner_generation_table_class)
 
-      var route_set_game_names = document.querySelectorAll(`.${inner_generation_table_class}>tbody>tr`)
-      var route_sets = document.querySelectorAll(`.${inner_generation_table_class}>tbody>tr>td>table>tbody>tr>td`)
+      const route_set_game_names = document.querySelectorAll(`.${inner_generation_table_class}>tbody>tr`)
+      const route_sets = document.querySelectorAll(`.${inner_generation_table_class}>tbody>tr>td>table>tbody>tr>td`)
 
-      var route_set_index = 0
+      let route_set_index = 0
       route_sets.forEach((route_set) => {
-        var game_names = Array.from(route_set_game_names[route_set_index].querySelectorAll("th>a>span")).map((el) => el.textContent).filter((txt) => txt !== null).map((txt) => txt.trim())
-        var routes = route_set.querySelectorAll("a")
+        const game_names = Array.from(route_set_game_names[route_set_index].querySelectorAll("th>a>span")).map((el) => el.textContent).filter((txt) => txt !== null).map((txt) => txt.trim())
+        const routes = route_set.querySelectorAll("a")
 
         routes.forEach(async (route) => {
           if (generation_name === null) {
@@ -81,7 +81,7 @@
   }
 
   async function makeRouteLinkBetter(route: HTMLAnchorElement, generation_name: string, game_names: string[]) {
-    var should_skip = matchOneOfTheFollowing(route.href, [
+    const should_skip = matchOneOfTheFollowing(route.href, [
       pokemon_regex,
       /\/Time$/,
       /\/Evolution$/,
@@ -95,7 +95,7 @@
     if (should_skip) {
       return
     }
-    var routehref = route.getAttribute("href")
+    const routehref = route.getAttribute("href")
     if (routehref === null) {
       console.error(NO_HREF_IN_ANCHOR)
       return
@@ -104,7 +104,7 @@
     const generation_name_underscored = generation_name.replace(" ", "_")
 
     if (generation_name === "Generation IV" && (game_names.includes("HeartGold") || game_names.includes("SoulSilver") || game_names.includes("Platinum"))) {
-      var percentage_winner = await fetch(
+      const percentage_winner = await fetch(
         `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
       ).then((res) => {
           if (res.status !== 200) {
@@ -134,8 +134,8 @@
   }
 
   function appendNumToLink(anchor: HTMLAnchorElement, num: number) {
-    var sup = document.createElement("sup")
-    var span = document.createElement("span")
+    const sup = document.createElement("sup")
+    const span = document.createElement("span")
     span.innerText = num + "%"
     span.style.fontWeight = "Bold"
     span.style.fontSize = "10px"
@@ -151,13 +151,13 @@
   function getHighestProcentageFromTableRow(tableRow: Element) {
     const numCaptureRegex = /(?<num>(?:\d|\.)+)%\n?/
     const isDataRowWithPercentage = (el: Element) => {
-      var is_non_header_row = el.nodeName.toLowerCase() === "td"
+      const is_non_header_row = el.nodeName.toLowerCase() === "td"
       if (is_non_header_row) {
-        var text = el.textContent
+        const text = el.textContent
         if (text === null) {
           return false
         }
-        var is_percentage_container = text.match(numCaptureRegex)
+        const is_percentage_container = text.match(numCaptureRegex)
         if (is_percentage_container !== null) {
           return true
         }
@@ -218,7 +218,7 @@
 
   function ExtractRelevantRowsFromTables(tableElementList: Element[], target_pokemon: string, target_games: string[]) {
     const isRowWithGivenPokemon = (element: Element) => {
-      var is_non_header_row = element.firstElementChild!.nodeName.toLowerCase() === "td"
+      const is_non_header_row = element.firstElementChild!.nodeName.toLowerCase() === "td"
       if (is_non_header_row) {
         const pokemon_span = element.firstElementChild!.querySelector("table>tbody>tr>*>a>span")
         if (pokemon_span !== null) {
@@ -262,7 +262,7 @@
         return arr.filter((el) => el === str).length > 0
       }
 
-      var thElements = BuildArrayWithTraversal(
+      const thElements = BuildArrayWithTraversal(
         element.firstElementChild!,
         captureTh,
         (_iterated_element) => false
@@ -289,9 +289,9 @@
 
     const isRelevantGamesRow = (el: Element) => isRowWithGivenPokemon(el) && isRowWithAtLeastOneOfGivenGames(el)
 
-    var rows_with_pokemon_in_question: Element[] = []
+    let rows_with_pokemon_in_question: Element[] = []
     tableElementList.forEach((table) => {
-      var rows_from_this_table = BuildArrayWithTraversal(
+      const rows_from_this_table = BuildArrayWithTraversal(
         table.querySelector("tbody>tr")!,
         isRelevantGamesRow,
         (_iterated_element) => false,
@@ -303,8 +303,8 @@
   }
 
   function BuildArrayWithTraversal(startElement: Element, captureFunc: (it_el: Element) => boolean, untilFunc: (it_el: Element) => boolean = (_it_el: Element) => false, tries: number = 20) {
-    var buildArray: Element[] = []
-    var traverse: Element | null = startElement
+    const buildArray: Element[] = []
+    let traverse: Element | null = startElement
     for (let i = 0; i < tries; i++) {
       if (traverse === null) {
         break
@@ -323,15 +323,15 @@
   }
 
   function matchOneOfTheFollowing(str: string, possibleMatch: (RegExp | string)[]) {
-    var returnValue = false
-    possibleMatch.forEach((m) => {
-      if (str.match(m)) {
-        returnValue = true
-        return;
-      }
-    })
-
-    return returnValue
+    return (
+      possibleMatch
+      .map(
+        (m) => str.match(m) !== null
+      )
+      .reduce(
+        (prev, cur) => prev || cur, false
+      )
+    )
   }
 
   function findAbbreviation(str: string) {
