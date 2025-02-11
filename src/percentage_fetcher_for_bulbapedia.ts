@@ -16,6 +16,7 @@
   // Settings START
   const locations_table_class = "location_table_Obs7o"
   const percentage_display_color = "rgb(128, 35, 160)"
+  const wait_period = 3000 // be very careful when lowering this number. If you are impatient, you can. But note that you will be requesting from API much faster, and you increase your risk of your IP being banned from the wiki
   // Settings END
   const pokemon_regex = /^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/
 
@@ -39,11 +40,11 @@
 
   let queuedRouteLinkTasks: RouteLinkTaskInfo[] = []
 
-  const is_pokemon_page = document.URL.match(pokemon_regex)
+  const is_pokemon_page = matchCurrentUrl(pokemon_regex)
   if (is_pokemon_page === null) {
     return
   }
-  setInterval(handleQueuedRouteLinkTasks, 3000)
+  setInterval(handleQueuedRouteLinkTasks, wait_period)
   const game_locations = document.querySelector("#Game_locations")
   if (!game_locations) {
     console.error(NO_GAME_LOCATION_TEXT)
@@ -62,8 +63,7 @@
       console.error(NOT_EMPTY_BUT_NO_FIRST)
       return
     }
-    console.log("getting to work...");
-    makeRouteLinkBetter(task)
+    FetchPercentageFromAPI(task)
   }
 
   function modify_generation_tables(generation_tables: NodeListOf<Element>) {
@@ -100,17 +100,61 @@
             console.error(NO_GENERATION_NAME_TEXT)
             return
           }
-          if (generation_name === "Generation IV" && (game_names.includes("HeartGold") || game_names.includes("SoulSilver") || game_names.includes("Platinum"))) {
-            const shouldBetterLink = checkIfShouldBetterLink(route)
-            if (shouldBetterLink) {
-              queueRouteLink({route, generation_name, game_names})
-            }
+          const shouldBetterLink = checkIfShouldBetterLink(route)
+          if (shouldBetterLink) {
+            makeRouteLinkBetter({route, generation_name, game_names})
           }
         })
         route_set_index++
       })
       generation_table_index++
     })
+  }
+
+  function getPokemonNameFromCurrentUrl() {
+    return matchCurrentUrl(pokemon_regex)!.groups!.pokemon
+  }
+
+  function matchCurrentUrl(regex: RegExp) {
+    return document.URL.match(regex)
+  }
+
+  function makeRouteLinkBetter(info: RouteLinkTaskInfo) {
+    const routehref = info.route.getAttribute("href")
+    if (routehref === null) {
+      console.error(NO_HREF_IN_ANCHOR_DESPITE_FOUND_EARLIER)
+      return
+    }
+    const linked_page = routehref.replace(/^\/wiki\//, "")
+
+    const percentageAccordingToLocalStore = searchLocalStore(
+      getPokemonNameFromCurrentUrl(),
+      linked_page,
+      info.game_names)
+    if (percentageAccordingToLocalStore !== null) {
+      appendNumToLink(info.route, percentageAccordingToLocalStore)
+    } else {
+      queueRouteLink(info)
+    }
+  }
+
+  function searchLocalStore(pokemon_name: string, route_name: string, game_names: string[]): number | null {
+    const id = getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name, route_name, game_names)
+    const value = localStorage.getItem(id)
+    if (value !== null) {
+      return Number(value)
+    } else {
+      return null
+    }
+  }
+
+  function setLocalStoreKV(pokemon_name: string, route_name: string, game_names: string[], value: number) {
+    const id = getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name, route_name, game_names)
+    localStorage.setItem(id, value.toString())
+  }
+
+  function getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name: string, route_name: string, game_names: string[]){
+    return `${game_names.sort().map((name) => findAbbreviation(name)).join(",")}@${route_name}:${pokemon_name}`
   }
 
   function queueRouteLink(info: RouteLinkTaskInfo) {
@@ -140,7 +184,7 @@
     return true
   }
 
-  async function makeRouteLinkBetter(info: RouteLinkTaskInfo) {
+  async function FetchPercentageFromAPI(info: RouteLinkTaskInfo) {
     const { route, generation_name, game_names } = info
     const routehref = route.getAttribute("href")
     if (routehref === null) {
@@ -170,12 +214,12 @@
         return TableElementListInSection(res.document, res.relavant_section)
       }).then((tablesInSection) => ExtractRelevantRowsFromTables(
         tablesInSection,
-        document.URL.match(pokemon_regex)!.groups!.pokemon,
+        getPokemonNameFromCurrentUrl(),
         game_names
       )).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row)
       )).then((percentages) => percentages.sort().reverse()[0])
-    console.log({page: linked_page, percentages: percentage_winner })
     appendNumToLink(route, Number(percentage_winner))
+    setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner))
   }
 
   function appendNumToLink(anchor: HTMLAnchorElement, num: number) {

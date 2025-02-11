@@ -13,18 +13,25 @@
     // Settings START
     const locations_table_class = "location_table_Obs7o";
     const percentage_display_color = "rgb(128, 35, 160)";
+    const wait_period = 3000; // be very careful when lowering this number. If you are impatient, you can. But note that you will be requesting from API much faster, and you increase your risk of your IP being banned from the wiki
     // Settings END
     const pokemon_regex = /^http.*?\/wiki\/(?<pokemon>.*?)_\(Pok\%C3\%A9mon\)(#.*)?/;
-    const NO_GAME_LOCATION_TEXT = "Attempted to run percentage fetcher script, but no \"#Game_location\" was found";
-    const NO_GENERATION_NAME_TEXT = "Failed to find the given generation's name for this table. Report a bug if you see this.";
-    const NO_INNER_GENERATION_TABLE_TEXT = "Failed to find the inner most generation table Element. Report a bug if you see this.";
-    const NO_HREF_IN_ANCHOR = "A link to a route didn't contain a url to link to. Report a bug if you see this.";
-    const NO_TEXT_FOUND_IN_TABLE_CELL_DESPITE_CAPTURING_ONLY_TEXT_TABLE_CELL = "Text was not found in a given Table Cell Element (td/th) despite this code only running on Table Cells captured that had text in them. This error should never happen. Report a bug if you see this.";
-    const GIVEN_SECTION_NOT_FOUND = "Failed to find the correct section to scan tables from. Report a bug if you see this.";
-    const is_pokemon_page = document.URL.match(pokemon_regex);
+    const IMPOSSIBLE = " This error should never happen.";
+    const STANDARD_ERROR_END = " Report a bug if you see this.";
+    const NOT_EMPTY_BUT_NO_FIRST = "Array was found to not be empty, yet no first element was found." + IMPOSSIBLE + STANDARD_ERROR_END;
+    const NO_GAME_LOCATION_TEXT = "Attempted to run percentage fetcher script on pokemon page, but no \"#Game_location\" was found." + STANDARD_ERROR_END;
+    const NO_GENERATION_NAME_TEXT = "Failed to find the given generation's name for this table." + STANDARD_ERROR_END;
+    const NO_INNER_GENERATION_TABLE_TEXT = "Failed to find the inner most generation table Element." + STANDARD_ERROR_END;
+    const NO_HREF_IN_ANCHOR = "A link to a route didn't contain a url to link to." + STANDARD_ERROR_END;
+    const NO_HREF_IN_ANCHOR_DESPITE_FOUND_EARLIER = "A link which was found to have a url it linked to earlier, now doesn't have one all of a sudden." + IMPOSSIBLE + STANDARD_ERROR_END;
+    const NO_TEXT_FOUND_IN_TABLE_CELL_DESPITE_CAPTURING_ONLY_TEXT_TABLE_CELL = "Text was not found in a given Table Cell Element (td/th) despite this code only running on Table Cells captured that had text in them." + IMPOSSIBLE + STANDARD_ERROR_END;
+    const GIVEN_SECTION_NOT_FOUND = "Failed to find the correct section to scan tables from." + STANDARD_ERROR_END;
+    let queuedRouteLinkTasks = [];
+    const is_pokemon_page = matchCurrentUrl(pokemon_regex);
     if (is_pokemon_page === null) {
         return;
     }
+    setInterval(handleQueuedRouteLinkTasks, wait_period);
     const game_locations = document.querySelector("#Game_locations");
     if (!game_locations) {
         console.error(NO_GAME_LOCATION_TEXT);
@@ -34,6 +41,17 @@
     game_locations_table.classList.add(locations_table_class);
     const generation_tables = document.querySelectorAll(`.${locations_table_class}>tbody>tr>td>table`);
     modify_generation_tables(generation_tables);
+    function handleQueuedRouteLinkTasks() {
+        if (queuedRouteLinkTasks.length <= 0) {
+            return;
+        }
+        const task = queuedRouteLinkTasks.shift();
+        if (!task) {
+            console.error(NOT_EMPTY_BUT_NO_FIRST);
+            return;
+        }
+        FetchPercentageFromAPI(task);
+    }
     function modify_generation_tables(generation_tables) {
         let generation_table_index = 0;
         generation_tables.forEach((generation_table) => {
@@ -63,14 +81,58 @@
                         console.error(NO_GENERATION_NAME_TEXT);
                         return;
                     }
-                    makeRouteLinkBetter(route, generation_name, game_names);
+                    const shouldBetterLink = checkIfShouldBetterLink(route);
+                    if (shouldBetterLink) {
+                        makeRouteLinkBetter({ route, generation_name, game_names });
+                    }
                 });
                 route_set_index++;
             });
             generation_table_index++;
         });
     }
-    async function makeRouteLinkBetter(route, generation_name, game_names) {
+    function getPokemonNameFromCurrentUrl() {
+        return matchCurrentUrl(pokemon_regex).groups.pokemon;
+    }
+    function matchCurrentUrl(regex) {
+        return document.URL.match(regex);
+    }
+    function makeRouteLinkBetter(info) {
+        const routehref = info.route.getAttribute("href");
+        if (routehref === null) {
+            console.error(NO_HREF_IN_ANCHOR_DESPITE_FOUND_EARLIER);
+            return;
+        }
+        const linked_page = routehref.replace(/^\/wiki\//, "");
+        const percentageAccordingToLocalStore = searchLocalStore(getPokemonNameFromCurrentUrl(), linked_page, info.game_names);
+        if (percentageAccordingToLocalStore !== null) {
+            appendNumToLink(info.route, percentageAccordingToLocalStore);
+        }
+        else {
+            queueRouteLink(info);
+        }
+    }
+    function searchLocalStore(pokemon_name, route_name, game_names) {
+        const id = getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name, route_name, game_names);
+        const value = localStorage.getItem(id);
+        if (value !== null) {
+            return Number(value);
+        }
+        else {
+            return null;
+        }
+    }
+    function setLocalStoreKV(pokemon_name, route_name, game_names, value) {
+        const id = getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name, route_name, game_names);
+        localStorage.setItem(id, value.toString());
+    }
+    function getLocalStoreKVIDFromIdenfifyingInfo(pokemon_name, route_name, game_names) {
+        return `${game_names.sort().map((name) => findAbbreviation(name)).join(",")}@${route_name}:${pokemon_name}`;
+    }
+    function queueRouteLink(info) {
+        queuedRouteLinkTasks.push(info);
+    }
+    function checkIfShouldBetterLink(route) {
         const should_skip = matchOneOfTheFollowing(route.href, [
             pokemon_regex,
             /\/Time$/,
@@ -83,33 +145,40 @@
             /\/Headbutt_tree$/
         ]);
         if (should_skip) {
-            return;
+            return false;
         }
         const routehref = route.getAttribute("href");
         if (routehref === null) {
             console.error(NO_HREF_IN_ANCHOR);
+            return false;
+        }
+        return true;
+    }
+    async function FetchPercentageFromAPI(info) {
+        const { route, generation_name, game_names } = info;
+        const routehref = route.getAttribute("href");
+        if (routehref === null) {
+            console.error(NO_HREF_IN_ANCHOR_DESPITE_FOUND_EARLIER);
             return;
         }
         const linked_page = routehref.replace(/^\/wiki\//, "");
         const generation_name_underscored = generation_name.replace(" ", "_");
-        if (generation_name === "Generation IV" && (game_names.includes("HeartGold") || game_names.includes("SoulSilver") || game_names.includes("Platinum"))) {
-            const percentage_winner = await fetch(`https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`).then((res) => {
-                if (res.status !== 200) {
-                    throw new Error(`There was an error with status code ${res.status}`);
-                }
-                return res.json();
-            }).then((res) => res.parse.text["*"]).then((res) => HTMLStringToDocument(res)).then((doc) => {
-                return {
-                    document: doc,
-                    relavant_section: doc.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
-                };
-            }).then((res) => {
-                modifyHref(route, res.relavant_section);
-                return TableElementListInSection(res.document, res.relavant_section);
-            }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, document.URL.match(pokemon_regex).groups.pokemon, game_names)).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row))).then((percentages) => percentages.sort().reverse()[0]);
-            console.log({ page: linked_page, percentages: percentage_winner });
-            appendNumToLink(route, Number(percentage_winner));
-        }
+        const percentage_winner = await fetch(`https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`).then((res) => {
+            if (res.status !== 200) {
+                throw new Error(`There was an error with status code ${res.status}`);
+            }
+            return res.json();
+        }).then((res) => res.parse.text["*"]).then((res) => HTMLStringToDocument(res)).then((doc) => {
+            return {
+                document: doc,
+                relavant_section: doc.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
+            };
+        }).then((res) => {
+            modifyHref(route, res.relavant_section);
+            return TableElementListInSection(res.document, res.relavant_section);
+        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row))).then((percentages) => percentages.sort().reverse()[0]);
+        appendNumToLink(route, Number(percentage_winner));
+        setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner));
     }
     function appendNumToLink(anchor, num) {
         const sup = document.createElement("sup");
