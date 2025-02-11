@@ -11,7 +11,7 @@
 
 
 
-(async function() {
+(function() {
   'use strict';
   // Settings START
   const locations_table_class = "location_table_Obs7o"
@@ -67,7 +67,7 @@
         const game_names = Array.from(route_set_game_names[route_set_index].querySelectorAll("th>a>span")).map((el) => el.textContent).filter((txt) => txt !== null).map((txt) => txt.trim())
         const routes = route_set.querySelectorAll("a")
 
-        routes.forEach(async (route) => {
+        routes.forEach((route) => {
           if (generation_name === null) {
             console.error(NO_GENERATION_NAME_TEXT)
             return
