@@ -170,7 +170,7 @@
       /\/.*?_Rod$/,
       /\/Pok\%C3\%A9mon_Bank$/,
       /\/Pok\%C3\%A9mon_Dollar$/,
-      /\/List_of_in-game_event_Pokémon_in_Generation_(I|V|X){1,5}&/,
+      /\/List_of_in-game_event_Pok\%C3\%A9mon_in_Generation_(I|V|X){1,5}(#.*?)$/,
       /\/.*?_salesman$/,
       /\/Trade$/,
       /\/Dual-slot_mode(#.*?)?$/,
