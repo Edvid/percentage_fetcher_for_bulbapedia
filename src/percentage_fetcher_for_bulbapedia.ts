@@ -131,7 +131,7 @@
       getPokemonNameFromCurrentUrl(),
       linked_page,
       info.game_names)
-    if (percentageAccordingToLocalStore !== null) {
+    if (percentageAccordingToLocalStore !== null && !isNaN(percentageAccordingToLocalStore)) {
       appendNumToLink(info.route, percentageAccordingToLocalStore)
     } else {
       queueRouteLink(info)
@@ -167,7 +167,11 @@
       /\/Time$/,
       /\/Evolution$/,
       /\/Route$/,
+      /\/.*?_Rod$/,
       /\/Pok\%C3\%A9mon_Bank$/,
+      /\/Pok\%C3\%A9mon_Dollar$/,
+      /\/List_of_in-game_event_Pokémon_in_Generation_(I|V|X){1,5}&/,
+      /\/.*?_salesman$/,
       /\/Trade$/,
       /\/Dual-slot_mode(#.*?)?$/,
       /\/Days_of_the_week(#.*?)?$/,
@@ -192,7 +196,6 @@
       return
     }
     const linked_page = routehref.replace(/^\/wiki\//, "")
-    const generation_name_underscored = generation_name.replace(" ", "_")
 
     const percentage_winner = await fetch(
       `https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${linked_page}&format=json`
@@ -200,14 +203,16 @@
         if (res.status !== 200) {
           throw new Error(`There was an error with status code ${res.status}`)
         }
+        console.log(res)
         return res.json()
       }).then(
         (res) => res.parse.text["*"]
       ).then((res) => HTMLStringToDocument(res)
       ).then((doc) => {
+        const section_name = getRelevantSectionName(doc, generation_name)
         return {
           document: doc,
-          relavant_section: doc.querySelector(`#${generation_name_underscored}`) !== null ? generation_name_underscored : "Pok\%C3\%A9mon"
+          relavant_section: section_name
         }
       }).then((res) => {
         modifyHref(route, res.relavant_section)
@@ -220,6 +225,36 @@
       )).then((percentages) => percentages.sort().reverse()[0])
     appendNumToLink(route, Number(percentage_winner))
     setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner))
+  }
+
+  function getRelevantSectionName(doc: Document, generation_name: string) {
+    const generation_name_underscored = generation_name.replace(" ", "_")
+
+    const captureSiblingWithSimilarNameToGeneration = (it_el: Element) => {
+      const span = it_el.querySelector("span")
+      if (span === null) {
+        return false
+      } else{
+        return span.id.match(new RegExp(`${generation_name_underscored}(_\d)?`)) !== null
+      }
+    }
+    const pokemonIDedElement = doc.querySelector("#Pokémon")
+    if (pokemonIDedElement == null) {
+      console.error(`Something went wrong finding the Pokémon id'ed element. Page is: ${doc.querySelector("#firstHeading span")?.textContent}`)
+      return "Pokémon"
+    }
+    const pokemonIDedParent = pokemonIDedElement?.parentElement
+    if (pokemonIDedParent == null) {
+      console.error(`This should never happen. Page is: ${doc.querySelector("#firstHeading span")?.textContent}`)
+      return "Pokémon"
+    }
+
+    const potentialCorrectSections = BuildArrayWithTraversal(
+      doc.querySelector("#Pokémon")!.parentElement!,
+      captureSiblingWithSimilarNameToGeneration
+    ).find((el) => el && el !== null)
+
+    return potentialCorrectSections ? potentialCorrectSections.querySelector("span")!.id : "Pokémon"
   }
 
   function appendNumToLink(anchor: HTMLAnchorElement, num: number) {
