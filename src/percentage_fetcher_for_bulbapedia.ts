@@ -164,7 +164,7 @@
   function checkIfShouldBetterLink(route: HTMLAnchorElement) {
     const should_skip = matchOneOfTheFollowing(route.href, [
       pokemon_regex,
-      /\/Breed$/,
+      /\/Pok\%C3\%A9mon_breeding$/,
       /\/Time$/,
       /\/Evolution$/,
       /\/Route$/,
