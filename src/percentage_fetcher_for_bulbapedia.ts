@@ -100,7 +100,7 @@
             console.error(NO_GENERATION_NAME_TEXT)
             return
           }
-          const shouldBetterLink = checkIfShouldBetterLink(route)
+          const shouldBetterLink = checkIfShouldBetterLink({route, generation_name, game_names})
           if (shouldBetterLink) {
             makeRouteLinkBetter({route, generation_name, game_names})
           }
@@ -161,8 +161,15 @@
     queuedRouteLinkTasks.push(info)
   }
 
-  function checkIfShouldBetterLink(route: HTMLAnchorElement) {
-    const should_skip = matchOneOfTheFollowing(route.href, [
+  function checkIfShouldBetterLink(routeInfo: RouteLinkTaskInfo) {
+    // Not a link
+    const routehref = routeInfo.route.getAttribute("href")
+    if (routehref === null) {
+      console.error(NO_HREF_IN_ANCHOR)
+      return false
+    }
+    // Route link links to something blacklisted
+    const is_link_blacklisted = matchOneOfTheFollowing(routeInfo.route.href, [
       pokemon_regex,
       /\/Pok\%C3\%A9mon_breeding$/,
       /\/Time$/,
@@ -197,12 +204,22 @@
       /\/Days_of_the_week(#.*?)?$/,
       /\/Headbutt_tree$/
     ])
-    if (should_skip) {
+    if (is_link_blacklisted) {
       return false
     }
-    const routehref = route.getAttribute("href")
-    if (routehref === null) {
-      console.error(NO_HREF_IN_ANCHOR)
+    let is_game_blacklisted = false
+    routeInfo.game_names.forEach((game_name) => {
+      if (matchOneOfTheFollowing(game_name, [
+        /\/Pok\%C3\%A9walker$/,
+        /Legends: Arceus/,
+        /Dream World/,
+        /XD/,
+        /Colosseum/,
+      ])) {
+        is_game_blacklisted = true
+      }
+    })
+    if (is_game_blacklisted) {
       return false
     }
     return true
