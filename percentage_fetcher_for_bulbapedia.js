@@ -320,6 +320,11 @@
         const isRowWithGivenPokemon = (element) => {
             const is_non_header_row = element.firstElementChild.nodeName.toLowerCase() === "td";
             if (is_non_header_row) {
+                // TODO: table > tbody > tr > td > a > span works for Gen IV
+                // Pokemon cells but Gen VIII pokemon cells are structed like
+                // div > div > a > span. The query selector should be
+                // able to capture the text in this cell wihtout confusing
+                // it for other elements here.
                 const pokemon_span = element.firstElementChild.querySelector("table>tbody>tr>*>a>span");
                 if (pokemon_span !== null) {
                     const pokemon_in_this_row = pokemon_span.textContent;
