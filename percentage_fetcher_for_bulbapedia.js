@@ -320,22 +320,19 @@
         const isRowWithGivenPokemon = (element) => {
             const is_non_header_row = element.firstElementChild.nodeName.toLowerCase() === "td";
             if (is_non_header_row) {
-                // TODO: table > tbody > tr > td > a > span works for Gen IV
-                // Pokemon cells but Gen VIII pokemon cells are structed like
-                // div > div > a > span. The query selector should be
-                // able to capture the text in this cell wihtout confusing
-                // it for other elements here.
-                const pokemon_span = element.firstElementChild.querySelector("table>tbody>tr>*>a>span");
-                if (pokemon_span !== null) {
-                    const pokemon_in_this_row = pokemon_span.textContent;
-                    const has_pokemon_in_question = pokemon_in_this_row === target_pokemon;
-                    return has_pokemon_in_question;
+                const pokemon_span_candidates = element.firstElementChild.querySelectorAll("* a>span");
+                const pokemon_span = Array.from(pokemon_span_candidates).find((el) => el.textContent && el.textContent.length > 0);
+                if (!pokemon_span || typeof pokemon_span === 'undefined') {
+                    return false;
                 }
+                const pokemon_in_this_row = pokemon_span.textContent;
+                const has_pokemon_in_question = pokemon_in_this_row === target_pokemon;
+                return has_pokemon_in_question;
             }
             return false;
         };
         const isRowWithAtLeastOneOfGivenGames = (element) => {
-            const captureTh = (el) => el.nodeName.toLowerCase() === "th";
+            const captureCells = (el) => el.nodeName.toLowerCase() === "th" || el.nodeName.toLowerCase() === "td";
             const colorIsBlank = (el) => {
                 const groups = el.style.background.match(/rgb\( ?(?<r>.*?), ?(?<g>.*?), ?(?<b>.*?) ?\)/).groups;
                 if (!groups) {
@@ -359,17 +356,24 @@
             const matchStrWithAnyInArr = (str, arr) => {
                 return arr.filter((el) => el === str).length > 0;
             };
-            const thElements = BuildArrayWithTraversal(element.firstElementChild, captureTh, (_iterated_element) => false);
+            const cellElements = BuildArrayWithTraversal(element.firstElementChild, captureCells, (_iterated_element) => false);
             const target_games_abbr = target_games.map((game_name) => findAbbreviation(game_name));
             const isHighlightingAtLeastOneOfGameNames = () => {
-                return thElements.filter((th) => {
-                    if (colorIsBlank(th)) {
+                return cellElements.filter((cellElement) => {
+                    if (colorIsBlank(cellElement)) {
                         return false;
                     }
-                    let text = th.firstElementChild.textContent;
+                    let cellChild = cellElement.firstElementChild;
+                    if (cellChild === null) {
+                        // ASSUMPTION: The cellElement for games never just
+                        // contain textContent directly. It is always within
+                        // some element (possibly an anchor) as it needs
+                        // to link to the game in question
+                        return false;
+                    }
+                    let text = cellChild.textContent;
                     if (text === null) {
-                        console.error(NO_TEXT_FOUND_IN_TABLE_CELL_DESPITE_CAPTURING_ONLY_TEXT_TABLE_CELL);
-                        return "FAILED_TH";
+                        return false;
                     }
                     if (matchStrWithAnyInArr(text, target_games_abbr)) {
                         return true;
