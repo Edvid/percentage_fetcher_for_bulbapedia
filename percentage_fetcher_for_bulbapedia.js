@@ -207,7 +207,6 @@
             if (res.status !== 200) {
                 throw new Error(`There was an error with status code ${res.status}`);
             }
-            console.log(res);
             return res.json();
         }).then((res) => res.parse.text["*"]).then((res) => HTMLStringToDocument(res)).then((doc) => {
             const section_name = getRelevantSectionName(doc, generation_name);
