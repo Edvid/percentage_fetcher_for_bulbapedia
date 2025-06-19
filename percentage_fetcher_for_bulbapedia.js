@@ -218,7 +218,7 @@
         }).then((res) => {
             modifyHref(route, res.relavant_section);
             return TableElementListInSection(res.document, res.relavant_section);
-        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row))).then((percentages) => percentages.sort().reverse()[0]);
+        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row))).then((percentages) => percentages.sort((a, b) => +b - +a /* descending */)[0]);
         appendNumToLink(route, Number(percentage_winner));
         setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner));
     }
@@ -284,7 +284,7 @@
                 return "FAILED_TD";
             }
             return text.match(numCaptureRegex).groups.num;
-        }).sort().reverse()[0];
+        }).sort((a, b) => +b - +a /* descending */)[0];
     }
     function modifyHref(anchor, UrlFragmentToAppend) {
         const routehref = anchor.getAttribute("href");

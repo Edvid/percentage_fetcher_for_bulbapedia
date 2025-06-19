@@ -259,7 +259,7 @@
         getPokemonNameFromCurrentUrl(),
         game_names
       )).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row)
-      )).then((percentages) => percentages.sort().reverse()[0])
+      )).then((percentages) => percentages.sort((a, b) => +b - +a /* descending */)[0])
     appendNumToLink(route, Number(percentage_winner))
     setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner))
   }
@@ -337,7 +337,7 @@
           }
           return text.match(numCaptureRegex)!.groups!.num
         }
-    ).sort().reverse()[0]
+    ).sort((a, b) => +b - +a /* descending */)[0]
   }
 
   function modifyHref(anchor: HTMLAnchorElement, UrlFragmentToAppend: string) {
