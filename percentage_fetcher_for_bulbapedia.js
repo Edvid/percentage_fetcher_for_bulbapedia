@@ -217,7 +217,18 @@
         }).then((res) => {
             modifyHref(route, res.relavant_section);
             return TableElementListInSection(res.document, res.relavant_section);
-        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => getHighestProcentageFromTableRow(row))).then((percentages) => percentages.sort((a, b) => +b - +a /* descending */)[0]);
+        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => tableRowToPercentageArray(row)))
+            .then((percentage_arrays) => percentage_arrays.reduce((prev, curr) => {
+            let new_arr = [];
+            let new_arr_length = Math.max(prev.length, curr.length);
+            for (let i = 0; i < new_arr_length; i++) {
+                let prev_at_index = prev.length >= new_arr_length ? prev[new_arr_length - i - 1] : "0";
+                let curr_at_index = curr.length >= new_arr_length ? curr[new_arr_length - i - 1] : "0";
+                new_arr[new_arr_length - i - 1] = (+prev_at_index + +curr_at_index).toString();
+            }
+            return new_arr;
+        }))
+            .then((merged_row) => getHighestProcentageFromArray(merged_row));
         appendNumToLink(route, Number(percentage_winner));
         setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner));
     }
@@ -260,7 +271,7 @@
         sup.appendChild(span);
         anchor.after(sup);
     }
-    function getHighestProcentageFromTableRow(tableRow) {
+    function tableRowToPercentageArray(tableRow) {
         const numCaptureRegex = /(?<num>(?:\d|\.)+)%\n?/;
         const isDataRowWithPercentage = (el) => {
             const is_non_header_row = el.nodeName.toLowerCase() === "td";
@@ -283,7 +294,10 @@
                 return "FAILED_TD";
             }
             return text.match(numCaptureRegex).groups.num;
-        }).sort((a, b) => +b - +a /* descending */)[0];
+        });
+    }
+    function getHighestProcentageFromArray(array) {
+        return array.sort((a, b) => +b - +a /* descending */)[0];
     }
     function modifyHref(anchor, UrlFragmentToAppend) {
         const routehref = anchor.getAttribute("href");
