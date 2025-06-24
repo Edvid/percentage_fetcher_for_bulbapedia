@@ -217,17 +217,15 @@
         }).then((res) => {
             modifyHref(route, res.relavant_section);
             return TableElementListInSection(res.document, res.relavant_section);
-        }).then((tablesInSection) => ExtractRelevantRowsFromTables(tablesInSection, getPokemonNameFromCurrentUrl(), game_names)).then((rows) => rows.map((row) => tableRowToPercentageArray(row)))
-            .then((percentage_arrays) => percentage_arrays.reduce((prev, curr) => {
-            let new_arr = [];
-            let new_arr_length = Math.max(prev.length, curr.length);
-            for (let i = 0; i < new_arr_length; i++) {
-                let prev_at_index = prev.length >= new_arr_length ? prev[new_arr_length - i - 1] : "0";
-                let curr_at_index = curr.length >= new_arr_length ? curr[new_arr_length - i - 1] : "0";
-                new_arr[new_arr_length - i - 1] = (+prev_at_index + +curr_at_index).toString();
-            }
-            return new_arr;
-        }))
+        }).then((tablesInSection) => TablesToSubtables(tablesInSection, getPokemonNameFromCurrentUrl())).then((subtables) => subtables.map((subtable) => SubtableToGameBuckets(subtable, game_names))).then((game_bucket_groups) => {
+            let game_buckets_as_array = [];
+            game_bucket_groups.forEach(game_bucket_group => {
+                Object.keys(game_bucket_group).forEach(game_named_bucket => {
+                    game_buckets_as_array.push(game_bucket_group[game_named_bucket]);
+                });
+            });
+            return game_buckets_as_array;
+        }).then((game_buckets_as_array) => game_buckets_as_array.map((game_bucket) => game_bucket.map((row) => tableRowToPercentageArray(row)))).then((percentage_array_groups) => collapsePercentageArrayGroupsToMergedRows(percentage_array_groups)).then((merged_rows) => merged_rows.map((merged_row) => getHighestProcentageFromArray(merged_row)))
             .then((merged_row) => getHighestProcentageFromArray(merged_row));
         appendNumToLink(route, Number(percentage_winner));
         setLocalStoreKV(getPokemonNameFromCurrentUrl(), linked_page, info.game_names, Number(percentage_winner));
@@ -329,7 +327,7 @@
         };
         return BuildArrayWithTraversal(section_header, captureAnyTable, untilFindingAnotherHeaderOfSameTypeAsSectionHeader);
     }
-    function ExtractRelevantRowsFromTables(tableElementList, target_pokemon, target_games) {
+    function TablesToSubtables(tableElementList, target_pokemon) {
         const isRowWithGivenPokemon = (element) => {
             const is_non_header_row = element.firstElementChild.nodeName.toLowerCase() === "td";
             if (is_non_header_row) {
@@ -344,7 +342,50 @@
             }
             return false;
         };
-        const isRowWithAtLeastOneOfGivenGames = (element) => {
+        const isRowSubtableSeparator = (element) => {
+            let children = Array.from(element.querySelectorAll('td, th'));
+            if (children.length == 1) {
+                return true;
+            }
+            return false;
+        };
+        // split tables into sub tables
+        // and
+        // take _any_ row with isRowWithGivenPokemon
+        // and
+        // put rows into baskets of games the row is relevant ot (row can be in more than one basket)
+        // THEN we know where to merge and where not to merge
+        let subtables = (() => {
+            let subtable_index = 0;
+            let return_value = [];
+            tableElementList.forEach(table => {
+                const first_row = table.querySelector("tbody>tr");
+                let traverse = first_row;
+                for (let i = 0; i < 200; i++) {
+                    if (traverse === null) {
+                        break;
+                    }
+                    if (isRowWithGivenPokemon(traverse)) {
+                        if (return_value.length <= subtable_index) {
+                            return_value[subtable_index] = [];
+                        }
+                        return_value[subtable_index].push(traverse);
+                    }
+                    else if (isRowSubtableSeparator(traverse)) {
+                        subtable_index++;
+                    }
+                    traverse = traverse.nextElementSibling;
+                }
+                subtable_index++;
+            });
+            return return_value;
+        })();
+        return subtables;
+    }
+    function SubtableToGameBuckets(subtable, target_games) {
+        const target_games_abbr = target_games.map((game_name) => findAbbreviation(game_name));
+        const game_buckets = target_games_abbr.reduce((prev, cur) => ({ ...prev, [cur]: [] }), {});
+        const getGamesMarkedFromRow = (element) => {
             const captureCells = (el) => el.nodeName.toLowerCase() === "th" || el.nodeName.toLowerCase() === "td";
             const colorIsBlank = (el) => {
                 const groups = el.style.background.match(/rgb\( ?(?<r>.*?), ?(?<g>.*?), ?(?<b>.*?) ?\)/).groups;
@@ -370,39 +411,51 @@
                 return arr.filter((el) => el === str).length > 0;
             };
             const cellElements = BuildArrayWithTraversal(element.firstElementChild, captureCells, (_iterated_element) => false);
-            const target_games_abbr = target_games.map((game_name) => findAbbreviation(game_name));
-            const isHighlightingAtLeastOneOfGameNames = () => {
-                return cellElements.filter((cellElement) => {
-                    if (colorIsBlank(cellElement)) {
-                        return false;
-                    }
-                    let cellChild = cellElement.firstElementChild;
-                    if (cellChild === null) {
-                        // ASSUMPTION: The cellElement for games never just
-                        // contain textContent directly. It is always within
-                        // some element (possibly an anchor) as it needs
-                        // to link to the game in question
-                        return false;
-                    }
-                    let text = cellChild.textContent;
-                    if (text === null) {
-                        return false;
-                    }
-                    if (matchStrWithAnyInArr(text, target_games_abbr)) {
-                        return true;
-                    }
-                    return false;
-                }).length > 0;
-            };
-            return isHighlightingAtLeastOneOfGameNames();
+            const game_names_highlighted = [];
+            cellElements.forEach(cellElement => {
+                if (colorIsBlank(cellElement)) {
+                    return;
+                }
+                let cellChild = cellElement.firstElementChild;
+                if (cellChild === null) {
+                    // ASSUMPTION: The cellElement for games never just
+                    // contain textContent directly. It is always within
+                    // some element (possibly an anchor) as it needs
+                    // to link to the game in question
+                    return;
+                }
+                let text = cellChild.textContent;
+                if (text === null) {
+                    return;
+                }
+                if (matchStrWithAnyInArr(text, target_games_abbr)) {
+                    game_names_highlighted.push(text);
+                    return;
+                }
+                return;
+            });
+            return game_names_highlighted;
         };
-        const isRelevantGamesRow = (el) => isRowWithGivenPokemon(el) && isRowWithAtLeastOneOfGivenGames(el);
-        let rows_with_pokemon_in_question = [];
-        tableElementList.forEach((table) => {
-            const rows_from_this_table = BuildArrayWithTraversal(table.querySelector("tbody>tr"), isRelevantGamesRow, (_iterated_element) => false, 200);
-            rows_with_pokemon_in_question = rows_with_pokemon_in_question.concat(rows_from_this_table);
+        subtable.forEach(row => {
+            let game_names = getGamesMarkedFromRow(row);
+            game_names.forEach(game_name => {
+                game_buckets[game_name].push(row);
+            });
         });
-        return rows_with_pokemon_in_question;
+        return game_buckets;
+    }
+    function collapsePercentageArrayGroupsToMergedRows(percentage_array_groups) {
+        return percentage_array_groups.map((percentage_array_group) => percentage_array_group
+            .reduce((prev, curr) => {
+            let new_arr = [];
+            let new_arr_length = Math.max(prev.length, curr.length);
+            for (let i = 0; i < new_arr_length; i++) {
+                let prev_at_index = prev.length >= new_arr_length ? prev[new_arr_length - i - 1] : "0";
+                let curr_at_index = curr.length >= new_arr_length ? curr[new_arr_length - i - 1] : "0";
+                new_arr[new_arr_length - i - 1] = (+prev_at_index + +curr_at_index).toString();
+            }
+            return new_arr;
+        }));
     }
     function BuildArrayWithTraversal(startElement, captureFunc, untilFunc = (_it_el) => false, tries = 20) {
         const buildArray = [];
