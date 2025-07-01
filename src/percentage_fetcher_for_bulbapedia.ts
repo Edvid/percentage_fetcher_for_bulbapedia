@@ -176,6 +176,7 @@
       /\/Evolution$/,
       /\/Route$/,
       /\/.*?_Rod$/,
+      /\/Pok\%C3\%A9mon_Egg$/,
       /\/Pok\%C3\%A9mon_Bank$/,
       /\/Pok\%C3\%A9mon_Dollar$/,
       /\/.*?_(Pok\%C3\%A9walker)$/,
@@ -202,7 +203,8 @@
       /\/White_Forest$/,
       /\/Dual-slot_mode(#.*?)?$/,
       /\/Days_of_the_week(#.*?)?$/,
-      /\/Headbutt_tree$/
+      /\/Headbutt_tree$/,
+      /\/Primo$/
     ])
     if (is_link_blacklisted) {
       return false
