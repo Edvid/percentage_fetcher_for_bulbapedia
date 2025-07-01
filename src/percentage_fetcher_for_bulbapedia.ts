@@ -197,6 +197,7 @@
       /\/Surf_\(move\)$/,
       /\/Trade$/,
       /\/Hidden_Grotto$/,
+      /\/Horde_Encounter$/,
       /\/Max_Raid_Battle$/,
       /\/Wild_Area_News$/,
       /\/Wanderer$/,
